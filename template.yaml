@@ -1,0 +1,35 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Firecrawl Lambda Scraper for JioPay Business Website
+
+Globals:
+  Function:
+    Timeout: 300
+    MemorySize: 512
+    Runtime: python3.9
+
+Resources:
+  FirecrawlScraperFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: lambda_firecrawl_scraper.lambda_handler
+      Environment:
+        Variables:
+          FIRECRAWL_API_KEY: !Ref FirecrawlApiKey
+      Events:
+        ScheduledEvent:
+          Type: Schedule
+          Properties:
+            Schedule: rate(1 day)  # Run daily, adjust as needed
+            
+Parameters:
+  FirecrawlApiKey:
+    Type: String
+    Description: Firecrawl API Key
+    NoEcho: true
+
+Outputs:
+  FirecrawlScraperFunction:
+    Description: "Firecrawl Lambda Scraper Function ARN"
+    Value: !GetAtt FirecrawlScraperFunction.Arn
