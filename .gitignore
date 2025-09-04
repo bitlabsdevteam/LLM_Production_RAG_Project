@@ -87,6 +87,7 @@ venv.bak/
 # Scraped content folders
 # html/ - Keeping HTML files in version control
 # text/ - Keeping text files in version control
+extracted_content/
 artifacts/
 output/
 data/

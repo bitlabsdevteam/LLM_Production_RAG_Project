@@ -1,0 +1,23 @@
+{
+  "name": "jiopay-crawler",
+  "version": "1.0.0",
+  "description": "AWS Lambda Puppeteer SPA FAQ crawler-scraper with S3 outputs",
+  "main": "JioPay_crawler.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "docker build -t jiopay-crawler .",
+    "push": "aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin YOUR_AWS_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com && docker tag jiopay-crawler:latest YOUR_AWS_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/jiopay-crawler:latest && docker push YOUR_AWS_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/jiopay-crawler:latest",
+    "deploy": "aws lambda update-function-code --function-name jiopay-crawler --image-uri YOUR_AWS_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/jiopay-crawler:latest",
+    "local-test": "docker run -p 9000:8080 jiopay-crawler:latest"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "puppeteer": "^22.0.0",
+    "uuid": "^9.0.0",
+    "aws-lambda-ric": "^2.0.0"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}

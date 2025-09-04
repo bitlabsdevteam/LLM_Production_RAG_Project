@@ -15,6 +15,10 @@ from bs4 import BeautifulSoup
 import hashlib
 from PIL import Image
 import io
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -333,6 +337,115 @@ class FirecrawlLambdaScraper:
             logger.error(f"Error in image extraction process: {str(e)}")
             raise
     
+    def extract_orange_box_content(self, url: str) -> Dict[str, Any]:
+        """Extract content from the orange square box that requires clicking to expand."""
+        try:
+            logger.info(f"Extracting orange box content from {url}")
+            
+            # Use Firecrawl's scrape with actions to interact with the orange box
+            result = self.firecrawl.scrape(
+                url=url,
+                formats=['markdown', 'html'],
+                actions=[
+                    # Wait for page to load
+                    {
+                        "type": "wait",
+                        "milliseconds": 3000
+                    },
+                    # Look for and click the orange box or FAQ section
+                    # This targets common selectors for expandable FAQ sections
+                    {
+                        "type": "click",
+                        "selector": "[class*='faq'], [class*='accordion'], [class*='collaps'], [class*='expand'], [data-toggle], [aria-expanded='false'], .orange-box, [style*='orange'], [style*='coral']"
+                    },
+                    # Wait for content to expand
+                    {
+                        "type": "wait",
+                        "milliseconds": 2000
+                    },
+                    # Try clicking on "What is JioPay Business?" specifically if it exists
+                    {
+                        "type": "click",
+                        "selector": "[aria-label*='JioPay Business'], [title*='JioPay Business'], :contains('What is JioPay Business')"
+                    },
+                    # Final wait for all content to load
+                    {
+                        "type": "wait",
+                        "milliseconds": 2000
+                    }
+                ],
+                # Extract specific content related to JioPay Business
+                extract={
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "orange_box_content": {
+                                "type": "string",
+                                "description": "Content from the orange square box about JioPay Business, including the description of JioPay Business as a payment aggregator"
+                            },
+                            "jiopay_business_description": {
+                                "type": "string",
+                                "description": "Detailed description of what JioPay Business is and its services"
+                            },
+                            "payment_services": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "List of payment services and features offered by JioPay Business"
+                            }
+                        }
+                    }
+                },
+                onlyMainContent=False,
+                includeTags=['div', 'p', 'span', 'section', 'article', 'ul', 'li'],
+                waitFor=5000
+            )
+            
+            if result and hasattr(result, 'data'):
+                logger.info("Successfully extracted orange box content with click interactions")
+                
+                # Save the extracted content to a specific file
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                filename = f"orange_box_content_{timestamp}.json"
+                
+                with open(filename, 'w', encoding='utf-8') as f:
+                    json.dump({
+                        'url': url,
+                        'timestamp': timestamp,
+                        'extracted_data': result.data if hasattr(result, 'data') else result,
+                        'extraction_method': 'firecrawl_with_click_actions'
+                    }, f, indent=2, ensure_ascii=False)
+                
+                logger.info(f"Orange box content saved to {filename}")
+                return result
+            else:
+                logger.warning("No data returned from orange box extraction")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error in orange box extraction: {str(e)}")
+            # Fallback: try simple scrape without actions
+            try:
+                logger.info("Attempting fallback extraction without actions")
+                fallback_result = self.firecrawl.scrape(
+                    url=url,
+                    formats=['markdown', 'html'],
+                    extract={
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "jiopay_business_info": {
+                                    "type": "string",
+                                    "description": "Any information about JioPay Business found on the page"
+                                }
+                            }
+                        }
+                    }
+                )
+                return fallback_result
+            except Exception as fallback_error:
+                logger.error(f"Fallback extraction also failed: {str(fallback_error)}")
+                raise
+                
     def extract_comprehensive_faq_content(self, url: str) -> Dict[str, Any]:
         """Extract comprehensive FAQ content with enhanced tab interaction for dynamic content."""
         try:
@@ -1002,7 +1115,31 @@ def lambda_handler(event, context):
         }
 
 if __name__ == "__main__":
-    # Test the lambda function locally
+    # Test the orange box extraction functionality
+    api_key = os.environ.get('FIRECRAWL_API_KEY')
+    if not api_key:
+        raise ValueError("FIRECRAWL_API_KEY environment variable is required")
+    
+    # Initialize scraper
+    scraper = FirecrawlLambdaScraper(api_key, max_pages=10)
+    
+    # Test orange box extraction
+    help_center_url = "https://jiopay.com/business/help-center"
+    print(f"Testing orange box extraction from: {help_center_url}")
+    
+    try:
+        orange_result = scraper.extract_orange_box_content(help_center_url)
+        if orange_result:
+            print("Orange box extraction successful!")
+            print(json.dumps(orange_result.data if hasattr(orange_result, 'data') else orange_result, indent=2))
+        else:
+            print("No orange box content found")
+    except Exception as e:
+        print(f"Error during orange box extraction: {str(e)}")
+    
+    # Also run the full lambda test
+    print("\n" + "="*50)
+    print("Running full lambda test...")
     test_event = {'max_pages': 100}  # Test with smaller limit
     test_context = {}
     
